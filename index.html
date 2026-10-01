@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marc Garneau Chess Club</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♚</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<script>
+// ratings are calculated from the games below, not stored
+
+const CLUB = {
+  name: "Marc Garneau Chess Club",
+  startingRating: 1000,
+  k: 40,
+  provisionalK: 60, // used for a player's first few games
+  provisionalGames: 5
+};
+
+const PLAYERS = [
+  { id: "michael",   name: "Michael Rustad",      start: 1500 },
+  { id: "tristan",   name: "Tristan Hudson",      start: 1500 },
+  { id: "eric",      name: "Eric Zhou",           start: 1300 },
+  { id: "soumya",    name: "Soumya Panigraphy",   start: 1200 },
+  { id: "stefan",    name: "Stefan Feher",        start: 1200 },
+  { id: "mincheng",  name: "Mincheng Zhan",       start: 1200 },
+  { id: "dennis",    name: "Dennis Zhang" },
+  { id: "alexander", name: "Alexander Tevatros" },
+  { id: "aarush",    name: "Aarush Kumar" },
+  { id: "elliot",    name: "Elliot Fan" }
+];
+
+// [white, black, "1-0" / "0-1" / "draw"]
+const SESSIONS = [
+];
+</script>
+
+<style>
+:root {
+  --paper: #F0F0F3;
+  --surface: #FAFAFC;
+  --ink: #222144;
+  --muted: #5E5E74;
+  --line: #D3D3DC;
+  --board: #2D2A5A;
+  --board-2: #8E2B3E;
+  --brass: #8E2B3E;
+  --up: #35684A;
+  --down: #A04331;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #16162C; --surface: #20203B; --ink: #E9E9F1; --muted: #A0A0B8;
+    --line: #343453; --board: #A6A5E0; --board-2: #B64A5B; --brass: #C8616C;
+    --up: #77B792; --down: #DF937B;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Archivo", Arial, sans-serif;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 52rem; margin: 0 auto; padding: 0 1.25rem; }
+
+.strip {
+  height: 10px;
+  background: repeating-linear-gradient(90deg, var(--board) 0 10px, var(--board-2) 10px 20px);
+}
+
+header { padding: 2.5rem 0 2rem; }
+.club {
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0;
+  color: var(--muted);
+}
+.leader {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 1.25rem;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+.leader .king {
+  font-size: clamp(4.5rem, 16vw, 8rem);
+  line-height: 1;
+  color: var(--brass);
+  grid-row: span 2;
+}
+.leader h1 {
+  margin: 0;
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: clamp(2rem, 7vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+.leader p { margin: .35rem 0 0; color: var(--muted); font-size: 1.05rem; }
+.leader p strong { color: var(--ink); font-weight: 700; }
+.updated { margin: 1.75rem 0 0; font-size: .95rem; color: var(--muted); }
+
+h2 {
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 1.35rem;
+  margin: 2.5rem 0 .75rem;
+}
+.board { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.board > li { border-bottom: 1px solid var(--line); }
+.row {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 5.5rem 4.5rem 6rem 4rem;
+  align-items: center;
+  gap: .75rem;
+  padding: .8rem .5rem;
+}
+.row:hover { background: var(--surface); }
+.row:focus-visible { outline: 2px solid var(--board); outline-offset: -2px; }
+.rank { font-weight: 700; color: var(--muted); text-align: right; font-size: 1.05rem; }
+.rank .piece { color: var(--brass); font-size: 1.5rem; line-height: 1; }
+.name { font-weight: 600; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag {
+  font-size: .75rem; font-weight: 600; color: var(--board);
+  border: 1px solid currentColor; border-radius: 3px;
+  padding: 0 .3rem; margin-left: .4rem; vertical-align: 2px;
+}
+.rating { font-stretch: 110%; font-weight: 800; font-size: 1.35rem; text-align: right; }
+.delta { font-weight: 600; text-align: right; font-size: .95rem; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+.delta.flat { color: var(--muted); }
+.record { color: var(--muted); font-size: .9rem; text-align: right; }
+.spark { width: 64px; height: 22px; justify-self: end; }
+.spark polyline { fill: none; stroke: var(--board); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.colhead {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 5.5rem 4.5rem 6rem 4rem;
+  gap: .75rem;
+  padding: 0 .5rem .4rem;
+  font-size: .8rem;
+  color: var(--muted);
+}
+.colhead span:not(:nth-child(2)) { text-align: right; }
+
+.history { padding: .25rem .5rem 1rem 3.75rem; display: none; }
+.board > li.open .history { display: block; }
+.board > li.open .row { background: var(--surface); }
+.history table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.history td { padding: .3rem .5rem .3rem 0; border-top: 1px solid var(--line); }
+.history td:last-child { text-align: right; font-weight: 600; }
+.history .res { font-weight: 700; width: 1.5rem; }
+.history .wk { color: var(--muted); width: 4rem; }
+.empty-note { color: var(--muted); font-size: .92rem; margin: .25rem 0 0; }
+
+.results { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.results li {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding: .6rem .5rem; border-bottom: 1px solid var(--line);
+}
+.results .chg { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+
+main { padding-bottom: 3rem; }
+.movers { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); }
+.mover { padding: 1rem .5rem 1.1rem; }
+.mover + .mover { border-left: 1px solid var(--line); padding-left: 1.25rem; }
+.mover h3 { margin: 0; font-size: .95rem; font-weight: 600; color: var(--muted); }
+.mover .who { margin: .35rem 0 0; font-stretch: 112%; font-weight: 700; font-size: 1.3rem; line-height: 1.2; min-height: 1.6rem; }
+.mover .amt { margin: .15rem 0 0; font-weight: 700; font-size: 1.05rem; }
+.mover.riser .amt { color: var(--up); }
+.mover.faller .amt { color: var(--down); }
+.mover .blank { color: var(--muted); font-weight: 500; }
+@media (max-width: 480px) {
+  .movers { grid-template-columns: 1fr; }
+  .mover + .mover { border-left: 0; border-top: 1px solid var(--line); padding-left: .5rem; }
+}
+
+.error {
+  background: var(--down); color: #fff; padding: .75rem 1rem; border-radius: 4px;
+  margin-top: 1rem; font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .row, .colhead { grid-template-columns: 2rem 1fr 4.5rem 3.5rem; gap: .5rem; }
+  .record, .spark, .colhead .c-rec, .colhead .c-trend { display: none; }
+  .history { padding-left: .5rem; }
+  .rating { font-size: 1.2rem; }
+}
+</style>
+</head>
+<body>
+<div class="strip" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <p class="club" id="club"></p>
+    <div class="leader" id="leader"></div>
+    <p class="updated" id="updated"></p>
+    <div id="errors"></div>
+  </header>
+
+  <main>
+    <h2>Standings</h2>
+    <div class="colhead" aria-hidden="true">
+      <span>#</span><span>Player</span><span>Rating</span><span>Last week</span>
+      <span class="c-rec">W-D-L</span><span class="c-trend">Trend</span>
+    </div>
+    <ol class="board" id="board"></ol>
+    <p class="empty-note">Tap a player to see their games.</p>
+
+    <h2 id="movers-title">This week's movers</h2>
+    <div class="movers">
+      <div class="mover riser"><h3>Biggest riser</h3><p class="who" id="riser-who"></p><p class="amt" id="riser-amt"></p></div>
+      <div class="mover faller"><h3>Fastest faller</h3><p class="who" id="faller-who"></p><p class="amt" id="faller-amt"></p></div>
+    </div>
+
+    <h2 id="latest-title">Latest results</h2>
+    <ul class="results" id="results"></ul>
+  </main>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const errors = [];
+
+  const players = new Map();
+  PLAYERS.forEach(p => players.set(p.id, {
+    ...p, rating: p.start ?? CLUB.startingRating, games: 0, w: 0, d: 0, l: 0,
+    history: [p.start ?? CLUB.startingRating], log: [], beforeLast: null
+  }));
+
+  const parseResult = (r) => {
+    const s = String(r).trim().toLowerCase();
+    if (s === "1-0") return 1;
+    if (s === "0-1") return 0;
+    if (s === "draw") return 0.5;
+    return null;
+  };
+  const kFor = (p) => p.games < CLUB.provisionalGames ? CLUB.provisionalK : CLUB.k;
+  const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const sessions = [...SESSIONS].sort((a, b) => a.week - b.week);
+  const last = sessions[sessions.length - 1];
+  const lastGames = [];
+
+  sessions.forEach(session => {
+    const isLast = session === last;
+    const played = new Set();
+    session.games.forEach((g, i) => {
+      const [wid, bid, res] = g;
+      const W = players.get(wid), B = players.get(bid);
+      const score = parseResult(res);
+      if (!W || !B || score === null) {
+        errors.push(`Week ${session.week}, game ${i + 1}: ` +
+          (!W ? `unknown player "${wid}". ` : "") + (!B ? `unknown player "${bid}". ` : "") +
+          (score === null ? `result "${res}" should be 1-0, 0-1 or draw.` : ""));
+        return;
+      }
+      if (isLast) {
+        if (W.beforeLast === null) W.beforeLast = W.rating;
+        if (B.beforeLast === null) B.beforeLast = B.rating;
+      }
+      const expW = 1 / (1 + Math.pow(10, (B.rating - W.rating) / 400));
+      const dW = kFor(W) * (score - expW);
+      const dB = kFor(B) * ((1 - score) - (1 - expW));
+      W.log.push({ week: session.week, opp: B.name, oppRating: B.rating, color: "White", score, delta: dW });
+      B.log.push({ week: session.week, opp: W.name, oppRating: W.rating, color: "Black", score: 1 - score, delta: dB });
+      if (isLast) lastGames.push({ W, B, s: score, dW, dB });
+      W.rating += dW; B.rating += dB;
+      W.games++; B.games++;
+      score === 1 ? (W.w++, B.l++) : score === 0 ? (W.l++, B.w++) : (W.d++, B.d++);
+      played.add(W); played.add(B);
+    });
+    played.forEach(p => p.history.push(p.rating));
+  });
+
+  const ranked = [...players.values()].sort((a, b) =>
+    Math.round(b.rating) - Math.round(a.rating) || a.name.localeCompare(b.name));
+  const pieces = ["♚", "♛", "♜"];
+
+  $("club").textContent = CLUB.name;
+  document.title = CLUB.name + " ladder";
+  const top = ranked[0];
+  const leaders = top ? ranked.filter(p => Math.round(p.rating) === Math.round(top.rating)) : [];
+  const anyGames = sessions.length > 0;
+  $("leader").innerHTML = top
+    ? `<span class="king" aria-hidden="true">♚</span>
+       <h1>${leaders.map(p => esc(p.name)).join(" &amp; ")}</h1>
+       <p>${anyGames ? (leaders.length > 1 ? "Tied for first" : "Top of the ladder") : (leaders.length > 1 ? "Joint top seeds" : "Top seed")}
+       at <strong>${Math.round(top.rating)}</strong></p>`
+    : `<span class="king" aria-hidden="true">♚</span><h1>No members yet</h1><p>Add players to start the ladder.</p>`;
+  $("updated").textContent = last
+    ? `Ratings after week ${last.week}, played ${fmtDate(last.date)}. ${players.size} members, ${sessions.reduce((n, s) => n + s.games.length, 0)} games recorded.`
+    : `Starting ratings for ${players.size} members. No games played yet.`;
+  if (errors.length) $("errors").innerHTML = errors.map(e => `<div class="error">${esc(e)}</div>`).join("");
+
+  const spark = (h) => {
+    if (h.length < 3) return `<svg class="spark" aria-hidden="true"></svg>`;
+    const min = Math.min(...h), max = Math.max(...h), span = max - min || 1;
+    const pts = h.map((v, i) => `${(i / (h.length - 1)) * 62 + 1},${21 - ((v - min) / span) * 20}`).join(" ");
+    return `<svg class="spark" viewBox="0 0 64 22" aria-hidden="true"><polyline points="${pts}"/></svg>`;
+  };
+  const signed = (n) => (Math.round(n) > 0 ? "+" : "") + Math.round(n);
+
+  let place = 0, prevRating = null;
+  $("board").innerHTML = ranked.map((p, i) => {
+    const r = Math.round(p.rating);
+    if (r !== prevRating) place = i + 1;   // tied ratings share a rank
+    prevRating = r;
+    const rankCell = place <= 3
+      ? `<span class="piece" title="Rank ${place}">${pieces[place - 1]}</span>` : place;
+    let deltaCell = `<span class="delta flat">-</span>`;
+    if (p.beforeLast !== null) {
+      const d = p.rating - p.beforeLast;
+      const cls = Math.round(d) > 0 ? "up" : Math.round(d) < 0 ? "down" : "flat";
+      deltaCell = `<span class="delta ${cls}">${signed(d)}</span>`;
+    }
+    const tag = p.games > 0 && p.games < CLUB.provisionalGames ? `<span class="tag" title="Fewer than ${CLUB.provisionalGames} games, rating still settling">Provisional</span>` : "";
+    const hist = p.log.length
+      ? `<table><tbody>${[...p.log].reverse().map(g => `
+          <tr>
+            <td class="wk">Week ${g.week}</td>
+            <td class="res">${g.score === 1 ? "W" : g.score === 0 ? "L" : "D"}</td>
+            <td>vs ${esc(g.opp)} (${Math.round(g.oppRating)}) as ${g.color}</td>
+            <td class="delta ${g.delta >= 0.5 ? "up" : g.delta <= -0.5 ? "down" : "flat"}">${signed(g.delta)}</td>
+          </tr>`).join("")}</tbody></table>`
+      : `<p class="empty-note">No games yet. Starting rating ${p.history[0]}.</p>`;
+    return `<li>
+      <button class="row" aria-expanded="false" aria-controls="h-${i}">
+        <span class="rank">${rankCell}</span>
+        <span class="name">${esc(p.name)}${tag}</span>
+        <span class="rating">${Math.round(p.rating)}</span>
+        ${deltaCell}
+        <span class="record">${p.w}-${p.d}-${p.l}</span>
+        ${spark(p.history)}
+      </button>
+      <div class="history" id="h-${i}">${hist}</div>
+    </li>`;
+  }).join("");
+
+  $("board").addEventListener("click", (e) => {
+    const btn = e.target.closest(".row");
+    if (!btn) return;
+    const li = btn.parentElement;
+    const open = li.classList.toggle("open");
+    btn.setAttribute("aria-expanded", open);
+  });
+
+  const moves = [...players.values()]
+    .filter(p => p.beforeLast !== null)
+    .map(p => ({ p, d: p.rating - p.beforeLast }));
+  const riser = moves.filter(m => Math.round(m.d) > 0).sort((a, b) => b.d - a.d)[0];
+  const faller = moves.filter(m => Math.round(m.d) < 0).sort((a, b) => a.d - b.d)[0];
+  const fillMover = (key, m) => {
+    $(key + "-who").innerHTML = m ? esc(m.p.name) : `<span class="blank">-</span>`;
+    $(key + "-amt").innerHTML = m
+      ? `${signed(m.d)} <span class="blank">to ${Math.round(m.p.rating)}</span>` : "";
+  };
+  fillMover("riser", riser);
+  fillMover("faller", faller);
+  if (last) $("movers-title").textContent = `Week ${last.week} movers`;
+
+  if (last) {
+    $("latest-title").textContent = `Week ${last.week} results`;
+    $("results").innerHTML = lastGames.map(({ W, B, s, dW, dB }) => {
+      const line = s === 1 ? `<strong>${esc(W.name)}</strong> beat ${esc(B.name)}`
+                 : s === 0 ? `<strong>${esc(B.name)}</strong> beat ${esc(W.name)}`
+                 : `${esc(W.name)} drew with ${esc(B.name)}`;
+      return `<li><span>${line}</span><span class="chg">${signed(dW)} / ${signed(dB)}</span></li>`;
+    }).join("");
+  } else {
+    $("latest-title").textContent = "Latest results";
+    $("results").innerHTML = `<li><span>Results appear here after the first session.</span></li>`;
+  }
+})();
+</script>
+</body>
+</html>
