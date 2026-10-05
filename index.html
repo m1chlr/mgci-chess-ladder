@@ -14,8 +14,14 @@
 const CLUB = {
   name: "Marc Garneau Chess Club",
   startingRating: 1000,
-  k: 40,
-  provisionalK: 60, // used for a player's first few games
+  // K (points at stake per game) shrinks as a player gets more games in:
+  // 60 for a first game, about 42 after 8, 36 after 16, levelling off toward 24
+  kMax: 60,
+  kMin: 24,
+  settle: 8,
+  // each week a player misses, their experience shrinks by this factor,
+  // so returning players move faster again until they settle back in
+  absenceDecay: 0.85,
   provisionalGames: 5
 };
 
@@ -31,7 +37,9 @@ const PLAYERS = [
   { id: "alexander", name: "Alexander Tevatros" },
   { id: "aarush",    name: "Aarush Kumar" },
   { id: "elliot",    name: "Elliot Fan" },
-  { id: "nicole",    name: "Nicole Zhang" }
+  { id: "nicole",    name: "Nicole Zhang" },
+  { id: "andrew",    name: "Andrew Lee" },
+  { id: "caitlin",   name: "Caitlin Ma" }
 ];
 
 // [white, black, "1-0" / "0-1" / "draw"]
@@ -238,7 +246,7 @@ main { padding-bottom: 3rem; }
 
   const players = new Map();
   PLAYERS.forEach(p => players.set(p.id, {
-    ...p, rating: p.start ?? CLUB.startingRating, games: 0, w: 0, d: 0, l: 0,
+    ...p, rating: p.start ?? CLUB.startingRating, games: 0, exp: 0, w: 0, d: 0, l: 0,
     history: [p.start ?? CLUB.startingRating], log: [], beforeLast: null
   }));
 
@@ -249,7 +257,7 @@ main { padding-bottom: 3rem; }
     if (s === "draw") return 0.5;
     return null;
   };
-  const kFor = (p) => p.games < CLUB.provisionalGames ? CLUB.provisionalK : CLUB.k;
+  const kFor = (p) => CLUB.kMin + (CLUB.kMax - CLUB.kMin) / (1 + p.exp / CLUB.settle);
   const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   const sessions = [...SESSIONS].sort((a, b) => a.week - b.week);
@@ -280,11 +288,12 @@ main { padding-bottom: 3rem; }
       B.log.push({ week: session.week, opp: W.name, oppRating: W.rating, color: "Black", score: 1 - score, delta: dB });
       if (isLast) lastGames.push({ W, B, s: score, dW, dB });
       W.rating += dW; B.rating += dB;
-      W.games++; B.games++;
+      W.games++; B.games++; W.exp++; B.exp++;
       score === 1 ? (W.w++, B.l++) : score === 0 ? (W.l++, B.w++) : (W.d++, B.d++);
       played.add(W); played.add(B);
     });
     played.forEach(p => p.history.push(p.rating));
+    players.forEach(p => { if (!played.has(p) && p.games > 0) p.exp *= CLUB.absenceDecay; });
   });
 
   const ranked = [...players.values()].sort((a, b) =>
