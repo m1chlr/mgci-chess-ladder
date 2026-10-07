@@ -14,15 +14,10 @@
 const CLUB = {
   name: "Marc Garneau Chess Club",
   startingRating: 1000,
-  // K (points at stake per game) shrinks as a player gets more games in:
-  // 60 for a first game, about 42 after 8, 36 after 16, levelling off toward 24
-  kMax: 60,
-  kMin: 24,
-  settle: 8,
-  // each week a player misses, their experience shrinks by this factor,
-  // so returning players move faster again until they settle back in
-  absenceDecay: 0.85,
-  provisionalGames: 5
+  // standard Elo, FIDE-style K: 40 while a player has fewer than 30 games, 20 after
+  kNew: 40,
+  k: 20,
+  newGames: 30
 };
 
 const PLAYERS = [
@@ -46,11 +41,30 @@ const PLAYERS = [
   { id: "kevin",     name: "Kevin Yang" },
   { id: "hadi",      name: "Hadi Tashfeen" },
   { id: "john",      name: "John Lee" },
-  { id: "william",   name: "William Lin" }
+  { id: "william",   name: "William Lin" },
+  { id: "mujtaba",   name: "Mujtaba",             start: 1200 },
+  { id: "kai",       name: "Kai Hong" },
+  { id: "levi",      name: "Levi Kang-Kim" },
+  { id: "narain",    name: "Narain Wijeyanathan" },
+  { id: "bilal",     name: "Bilal Abunader" }
 ];
 
-// [white, black, "1-0" / "0-1" / "draw"]
+// [white, black, "1-0" / "0-1" / "draw"]; optional weight multiplies a session's rating changes
 const SESSIONS = [
+  { week: 1, date: "2026-10-07", weight: 1.5, games: [
+    ["mincheng", "john",      "1-0"],
+    ["william",  "nicole",    "1-0"],
+    ["soumya",   "stefan",    "1-0"],
+    ["kai",      "levi",      "1-0"],
+    ["nikolay",  "eric",      "draw"],
+    ["andrew",   "bilal",     "1-0"],
+    ["mujtaba",  "narain",    "1-0"],
+    ["galaxy",   "caitlin",   "draw"],
+    ["dennis",   "hadi",      "1-0"],
+    ["galaxy",   "william",   "1-0"],
+    ["andrew",   "alexander", "1-0"],
+    ["mujtaba",  "soumya",    "1-0"]
+  ]}
 ];
 </script>
 
@@ -147,11 +161,6 @@ h2 {
 .rank { font-weight: 700; color: var(--muted); text-align: right; font-size: 1.05rem; }
 .rank .piece { color: var(--brass); font-size: 1.5rem; line-height: 1; }
 .name { font-weight: 600; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tag {
-  font-size: .75rem; font-weight: 600; color: var(--board);
-  border: 1px solid currentColor; border-radius: 3px;
-  padding: 0 .3rem; margin-left: .4rem; vertical-align: 2px;
-}
 .rating { font-stretch: 110%; font-weight: 800; font-size: 1.35rem; text-align: right; }
 .delta { font-weight: 600; text-align: right; font-size: .95rem; }
 .delta.up { color: var(--up); }
@@ -264,7 +273,7 @@ main { padding-bottom: 3rem; }
     if (s === "draw") return 0.5;
     return null;
   };
-  const kFor = (p) => CLUB.kMin + (CLUB.kMax - CLUB.kMin) / (1 + p.exp / CLUB.settle);
+  const kFor = (p) => p.games < CLUB.newGames ? CLUB.kNew : CLUB.k;
   const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   const sessions = [...SESSIONS].sort((a, b) => a.week - b.week);
@@ -289,8 +298,9 @@ main { padding-bottom: 3rem; }
         if (B.beforeLast === null) B.beforeLast = B.rating;
       }
       const expW = 1 / (1 + Math.pow(10, (B.rating - W.rating) / 400));
-      const dW = kFor(W) * (score - expW);
-      const dB = kFor(B) * ((1 - score) - (1 - expW));
+      const wt = session.weight ?? 1;
+      const dW = wt * kFor(W) * (score - expW);
+      const dB = wt * kFor(B) * ((1 - score) - (1 - expW));
       W.log.push({ week: session.week, opp: B.name, oppRating: B.rating, color: "White", score, delta: dW });
       B.log.push({ week: session.week, opp: W.name, oppRating: W.rating, color: "Black", score: 1 - score, delta: dB });
       if (isLast) lastGames.push({ W, B, s: score, dW, dB });
@@ -300,7 +310,6 @@ main { padding-bottom: 3rem; }
       played.add(W); played.add(B);
     });
     played.forEach(p => p.history.push(p.rating));
-    players.forEach(p => { if (!played.has(p) && p.games > 0) p.exp *= CLUB.absenceDecay; });
   });
 
   const ranked = [...players.values()].sort((a, b) =>
@@ -344,7 +353,6 @@ main { padding-bottom: 3rem; }
       const cls = Math.round(d) > 0 ? "up" : Math.round(d) < 0 ? "down" : "flat";
       deltaCell = `<span class="delta ${cls}">${signed(d)}</span>`;
     }
-    const tag = p.games > 0 && p.games < CLUB.provisionalGames ? `<span class="tag" title="Fewer than ${CLUB.provisionalGames} games, rating still settling">Provisional</span>` : "";
     const hist = p.log.length
       ? `<table><tbody>${[...p.log].reverse().map(g => `
           <tr>
@@ -357,7 +365,7 @@ main { padding-bottom: 3rem; }
     return `<li>
       <button class="row" aria-expanded="false" aria-controls="h-${i}">
         <span class="rank">${rankCell}</span>
-        <span class="name">${esc(p.name)}${tag}</span>
+        <span class="name">${esc(p.name)}</span>
         <span class="rating">${Math.round(p.rating)}</span>
         ${deltaCell}
         <span class="record">${p.w}-${p.d}-${p.l}</span>
