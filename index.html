@@ -17,7 +17,10 @@ const CLUB = {
   // standard Elo, FIDE-style K: 40 while a player has fewer than 30 games, 20 after
   kNew: 40,
   k: 20,
-  newGames: 30
+  newGames: 30,
+  // points lost for each week a member doesn't play
+  absencePenalty: 12,
+  absenceFromWeek: 2
 };
 
 const PLAYERS = [
@@ -42,11 +45,14 @@ const PLAYERS = [
   { id: "hadi",      name: "Hadi Tashfeen" },
   { id: "john",      name: "John Lee" },
   { id: "william",   name: "William Lin" },
-  { id: "mujtaba",   name: "Mujtaba",             start: 1100 },
+  { id: "mujtaba",   name: "Mujtaba Mohammad",    start: 1100 },
   { id: "kai",       name: "Kai Hong" },
   { id: "levi",      name: "Levi Kang-Kim" },
   { id: "narain",    name: "Narain Wijeyanathan" },
-  { id: "bilal",     name: "Bilal Abunader" }
+  { id: "bilal",     name: "Bilal Abunader" },
+  { id: "vishesh",   name: "Vishesh Jaiswar",     joined: 2 },
+  { id: "gabriel",   name: "Gabriel Desta",       joined: 3 },
+  { id: "karan",     name: "Karan Kavehahngari",  joined: 3 }
 ];
 
 // [white, black, "1-0" / "0-1" / "draw"]; optional weight multiplies a session's rating changes
@@ -64,6 +70,45 @@ const SESSIONS = [
     ["galaxy",   "william",   "1-0"],
     ["andrew",   "alexander", "1-0"],
     ["mujtaba",  "soumya",    "1-0"]
+  ]},
+  { week: 2, date: "2026-10-21", games: [
+    ["tristan",  "stefan",    "1-0"],
+    ["andrew",   "vishesh",   "0-1"],
+    ["kai",      "alexander", "draw"],
+    ["soumya",   "dennis",    "1-0"],
+    ["dennis",   "soumya",    "0-1"],
+    ["tristan",  "stefan",    "1-0"],
+    ["nikolay",  "eric",      "1-0"],
+    ["stefan",   "hadi",      "0-1"],
+    ["eric",     "hadi",      "1-0"],
+    ["hadi",     "eric",      "0-1"],
+    ["eric",     "hadi",      "1-0"],
+    ["hadi",     "eric",      "1-0"],
+    ["nikolay",  "tristan",   "1-0"],
+    ["stefan",   "dennis",    "1-0"],
+    ["soumya",   "andrew",    "draw"],
+    ["michael",  "nikolay",   "1-0"]
+  ]},
+  { week: 3, date: "2026-10-28", games: [
+    ["stefan",   "soumya",    "1-0"],
+    ["karan",    "alexander", "1-0"],
+    ["kevin",    "william",   "1-0"],
+    ["william",  "kevin",     "0-1"],
+    ["hadi",     "vishesh",   "1-0"],
+    ["nikolay",  "mincheng",  "1-0"],
+    ["soumya",   "kevin",     "1-0"],
+    ["kai",      "gabriel",   "1-0"],
+    ["gabriel",  "kai",       "0-1"],
+    ["kai",      "gabriel",   "1-0"],
+    ["gabriel",  "kai",       "0-1"],
+    ["michael",  "mujtaba",   "draw"],
+    ["mujtaba",  "michael",   "0-1"],
+    ["hadi",     "soumya",    "1-0"],
+    ["karan",    "stefan",    "1-0"],
+    ["vishesh",  "hadi",      "0-1"],
+    ["soumya",   "stefan",    "1-0"],
+    ["andrew",   "ryan",      "1-0"],
+    ["tristan",  "hadi",      "1-0"]
   ]}
 ];
 </script>
@@ -80,12 +125,13 @@ const SESSIONS = [
   --brass: #8E2B3E;
   --up: #35684A;
   --down: #A04331;
+  --absent: #3B67A3;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #16162C; --surface: #20203B; --ink: #E9E9F1; --muted: #A0A0B8;
     --line: #343453; --board: #A6A5E0; --board-2: #B64A5B; --brass: #C8616C;
-    --up: #77B792; --down: #DF937B;
+    --up: #77B792; --down: #DF937B; --absent: #8DB0E3;
   }
 }
 * { box-sizing: border-box; }
@@ -165,6 +211,8 @@ h2 {
 .delta { font-weight: 600; text-align: right; font-size: .95rem; }
 .delta.up { color: var(--up); }
 .delta.down { color: var(--down); }
+.delta.absent { color: var(--absent); }
+.history tr.absent td { color: var(--absent); }
 .delta.flat { color: var(--muted); }
 .record { color: var(--muted); font-size: .9rem; text-align: right; }
 .spark { width: 64px; height: 22px; justify-self: end; }
@@ -310,6 +358,13 @@ main { padding-bottom: 3rem; }
       played.add(W); played.add(B);
     });
     played.forEach(p => p.history.push(p.rating));
+    players.forEach(p => {
+      if (session.week < CLUB.absenceFromWeek || played.has(p) || (p.joined ?? 1) > session.week) return;
+      p.rating -= CLUB.absencePenalty;
+      p.log.push({ week: session.week, absent: true, delta: -CLUB.absencePenalty });
+      p.history.push(p.rating);
+      if (isLast) p.absentLast = true;
+    });
   });
 
   const ranked = [...players.values()].sort((a, b) =>
@@ -348,13 +403,21 @@ main { padding-bottom: 3rem; }
     const rankCell = place <= 3
       ? `<span class="piece" title="Rank ${place}">${pieces[place - 1]}</span>` : place;
     let deltaCell = `<span class="delta flat">-</span>`;
-    if (p.beforeLast !== null) {
+    if (p.absentLast) {
+      deltaCell = `<span class="delta absent" title="Didn't play this week">${signed(-CLUB.absencePenalty)}</span>`;
+    } else if (p.beforeLast !== null) {
       const d = p.rating - p.beforeLast;
       const cls = Math.round(d) > 0 ? "up" : Math.round(d) < 0 ? "down" : "flat";
       deltaCell = `<span class="delta ${cls}">${signed(d)}</span>`;
     }
     const hist = p.log.length
-      ? `<table><tbody>${[...p.log].reverse().map(g => `
+      ? `<table><tbody>${[...p.log].reverse().map(g => g.absent ? `
+          <tr class="absent">
+            <td class="wk">Week ${g.week}</td>
+            <td class="res">-</td>
+            <td>Didn't play</td>
+            <td class="delta absent">${signed(g.delta)}</td>
+          </tr>` : `
           <tr>
             <td class="wk">Week ${g.week}</td>
             <td class="res">${g.score === 1 ? "W" : g.score === 0 ? "L" : "D"}</td>
